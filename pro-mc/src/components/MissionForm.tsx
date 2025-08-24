@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Mission, MissionType, MissionStatus, MotifControleType } from '../types/mission';
+import { db } from '../database/localStorageDb';
 import { toast } from 'react-hot-toast';
+import { getSenegalNow, toSenegalISOString } from '../utils/timeUtils';
 
 interface MissionFormProps {
   onSubmit: (data: Partial<Mission>) => Promise<void>;
@@ -17,180 +19,34 @@ export const MissionForm: React.FC<MissionFormProps> = ({ onSubmit, initialData 
     defaultValues: initialData,
   });
 
-  const handleSubmitForm = async (data: Partial<Mission>) => {
+  const handleFormSubmit = async (data: any) => {
     try {
-      setIsSubmitting(true);
-      setError(null);
-      console.log('Données brutes du formulaire:', data);
-
-      // Validation des champs requis
-      const requiredFields: (keyof Mission)[] = [
-        'reference',
-        'title',
-        'description',
-        'type_mission',
-        'organization',
-        'address',
-        'start_date',
-        'end_date',
-        'status',
-        'motif_controle'
-      ];
-
-      const missingFields = requiredFields
-        .filter(key => !data[key])
-        .map(key => {
-          switch (key) {
-            case 'reference': return 'Référence';
-            case 'title': return 'Titre';
-            case 'description': return 'Description';
-            case 'type_mission': return 'Type de mission';
-            case 'organization': return 'Organisation';
-            case 'address': return 'Adresse';
-            case 'start_date': return 'Date de début';
-            case 'end_date': return 'Date de fin';
-            case 'status': return 'Statut';
-            case 'motif_controle': return 'Motif de contrôle';
-            default: return key;
-          }
-        });
-
-      if (missingFields.length > 0) {
-        const errorMessage = `Veuillez remplir les champs suivants : ${missingFields.join(', ')}`;
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      // Validation des dates
-      if (!data.start_date || !data.end_date) {
-        const errorMessage = 'Les dates de début et de fin sont requises';
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      const startDate = new Date(data.start_date);
-      const endDate = new Date(data.end_date);
-      const decisionDate = data.date_decision ? new Date(data.date_decision) : null;
-
-      if (isNaN(startDate.getTime())) {
-        const errorMessage = 'La date de début est invalide';
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      if (isNaN(endDate.getTime())) {
-        const errorMessage = 'La date de fin est invalide';
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      if (startDate > endDate) {
-        const errorMessage = 'La date de début doit être antérieure à la date de fin';
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      // Validation de la date de décision
-      if (decisionDate) {
-        if (isNaN(decisionDate.getTime())) {
-          const errorMessage = 'La date de décision est invalide';
-          toast.error(errorMessage);
-          throw new Error(errorMessage);
-        }
-        
-        // La date de décision ne peut pas être dans le futur
-        if (decisionDate > new Date()) {
-          const errorMessage = 'La date de décision ne peut pas être dans le futur';
-          toast.error(errorMessage);
-          throw new Error(errorMessage);
-        }
-      }
-
-      // Validation des types
-      const validMissionTypes: MissionType[] = ['Contrôle sur place', 'Contrôle sur pièces', 'Contrôle en ligne'];
-      const validStatusTypes: MissionStatus[] = ['PLANIFIEE', 'EN_COURS', 'TERMINEE', 'ANNULEE', 'ATTENTE_REPONSE'];
-      const validMotifTypes: MotifControleType[] = ['Suite a une plainte', 'Decision de la session pleniere', 'Programme annuel', 'Autres'];
-
-      if (!validMissionTypes.includes(data.type_mission as MissionType)) {
-        const errorMessage = 'Type de mission invalide';
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      if (!validStatusTypes.includes(data.status as MissionStatus)) {
-        const errorMessage = 'Statut invalide';
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      if (!validMotifTypes.includes(data.motif_controle as MotifControleType)) {
-        const errorMessage = 'Motif de contrôle invalide';
-        toast.error(errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      // Formatage des données
-      const formattedData = {
+      const now = getSenegalNow();
+      
+      const newMission: Omit<Mission, 'id'> = {
         ...data,
-        // Conversion des types de mission
-        type_mission: data.type_mission as MissionType,
-        // Conversion des statuts
-        status: data.status as MissionStatus,
-        // Conversion des motifs de contrôle
-        motif_controle: data.motif_controle as MotifControleType,
-        // Gestion des tableaux
-        team_members: typeof data.team_members === 'string' 
-          ? data.team_members.split(',').map(m => m.trim()).filter(Boolean)
-          : Array.isArray(data.team_members) 
-            ? data.team_members 
-            : [],
-        objectives: typeof data.objectives === 'string'
-          ? data.objectives.split('\n').map(o => o.trim()).filter(Boolean)
-          : Array.isArray(data.objectives)
-            ? data.objectives
-            : [],
-        // Validation des tableaux obligatoires
+        status: 'PLANIFIEE' as MissionStatus,
+        created_at: toSenegalISOString(now),
+        updated_at: toSenegalISOString(now),
+        start_date: data.start_date,
+        end_date: data.end_date,
         findings: [],
         remarks: [],
         sanctions: [],
-        documents: [],
-        // Ajout des champs par défaut
-        reponse_recue: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        documents: []
       };
 
-      // Validation supplémentaire des champs obligatoires
-      if (!formattedData.team_members.length) {
-        throw new Error('Au moins un membre de l\'équipe est requis');
-      }
-
-      if (!formattedData.objectives.length) {
-        throw new Error('Au moins un objectif est requis');
-      }
-
-      if (!formattedData.decision_numero) {
-        throw new Error('Le numéro de décision est requis');
-      }
-
-      if (!formattedData.date_decision) {
-        throw new Error('La date de décision est requise');
-      }
-
-      console.log('Données formatées pour la soumission:', formattedData);
-      await onSubmit(formattedData);
-      toast.success('Mission créée avec succès');
+      await db.addMission(newMission);
+      toast.success('Mission créée avec succès !');
       navigate('/missions');
     } catch (error) {
       console.error('Erreur lors de la création de la mission:', error);
       toast.error('Erreur lors de la création de la mission');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(handleSubmitForm)} className="space-y-6 max-w-2xl mx-auto p-6 bg-white rounded-lg shadow">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 max-w-2xl mx-auto p-6 bg-white rounded-lg shadow">
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}

@@ -56,5 +56,39 @@ export const useLocalMissions = () => {
     }
   };
 
-  return { missions, loading, error, refreshMissions, addMission };
+  const updateMissionStatuses = async () => {
+    try {
+      setLoading(true);
+      const result = await db.updateMissionStatuses();
+      console.log('Mise à jour des statuts:', result);
+      await refreshMissions();
+      return result;
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour des statuts:', err);
+      setError('Erreur lors de la mise à jour des statuts');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkUpcomingStatusChanges = async () => {
+    try {
+      const result = await db.checkUpcomingStatusChanges();
+      return result;
+    } catch (err) {
+      console.error('Erreur lors de la vérification des changements de statut:', err);
+      return { startingSoon: [], endingSoon: [] };
+    }
+  };
+
+  return { 
+    missions, 
+    loading, 
+    error, 
+    refreshMissions, 
+    addMission, 
+    updateMissionStatuses, 
+    checkUpcomingStatusChanges 
+  };
 }; 

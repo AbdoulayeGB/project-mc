@@ -176,6 +176,12 @@ export const MissionDocuments: React.FC<MissionDocumentsProps> = ({ missionId, o
         return <DocumentDuplicateIcon className="h-6 w-6 text-yellow-500" />;
       case 'LETTRE_REPONSE':
         return <DocumentCheckIcon className="h-6 w-6 text-green-500" />;
+      case 'LETTRE_DECISION':
+        return <DocumentIcon className="h-6 w-6 text-purple-500" />;
+      case 'LETTRE_PROCUREUR':
+        return <DocumentIcon className="h-6 w-6 text-red-500" />;
+      case 'NOTIFICATION_RECU':
+        return <DocumentIcon className="h-6 w-6 text-teal-500" />;
       default:
         return <DocumentIcon className="h-6 w-6 text-gray-500" />;
     }
@@ -189,6 +195,12 @@ export const MissionDocuments: React.FC<MissionDocumentsProps> = ({ missionId, o
         return 'Lettre de notification des manquements';
       case 'LETTRE_REPONSE':
         return 'Lettre de réponse du responsable de traitement';
+      case 'LETTRE_DECISION':
+        return 'Lettre de décision';
+      case 'LETTRE_PROCUREUR':
+        return 'Lettre au procureur';
+      case 'NOTIFICATION_RECU':
+        return 'Notification reçue';
       default:
         return 'Autre document';
     }
@@ -265,6 +277,9 @@ export const MissionDocuments: React.FC<MissionDocumentsProps> = ({ missionId, o
               <option value="RAPPORT_CONTROLE">Rapport de mission de contrôle</option>
               <option value="LETTRE_NOTIFICATION">Lettre de notification des manquements</option>
               <option value="LETTRE_REPONSE">Lettre de réponse du responsable de traitement</option>
+              <option value="LETTRE_DECISION">Lettre de décision</option>
+              <option value="LETTRE_PROCUREUR">Lettre au procureur</option>
+              <option value="NOTIFICATION_RECU">Notification reçue</option>
             </select>
           </div>
 

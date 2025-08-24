@@ -1,9 +1,12 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { Mission } from '../types/mission';
 import { db } from '../database/localStorageDb';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from 'chart.js';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { StatusChangeAlerts } from './StatusChangeAlerts';
+import { IgnoredMissions } from './IgnoredMissions';
+ 
 
 // Enregistrement des composants Chart.js
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
@@ -12,8 +15,11 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 const DynamicPie = lazy(() => import('react-chartjs-2').then(mod => ({ default: mod.Pie })));
 const DynamicBar = lazy(() => import('react-chartjs-2').then(mod => ({ default: mod.Bar })));
 
-export const Dashboard = () => {
-  const [missions, setMissions] = useState<Mission[]>([]);
+interface DashboardProps {
+  missions: Mission[];
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({ missions }) => {
   const [isClient, setIsClient] = useState(false);
   const [stats, setStats] = useState({
     totalMissions: 0,
@@ -23,27 +29,39 @@ export const Dashboard = () => {
     tauxCompletion: 0,
   });
 
-  useEffect(() => {
-    const loadMissions = async () => {
-      const allMissions = await db.getAllMissions();
-      console.log('Toutes les missions:', allMissions);
-      setMissions(allMissions);
-      
-      // Calcul des statistiques
-      const enCours = allMissions.filter(m => m.status === 'EN_COURS').length;
-      const terminees = allMissions.filter(m => m.status === 'TERMINEE').length;
-      const enAttente = allMissions.filter(m => m.status === 'ATTENTE_REPONSE').length;
-      
-      setStats({
-        totalMissions: allMissions.length,
-        missionsEnCours: enCours,
-        missionsTerminees: terminees,
-        missionsEnAttente: enAttente,
-        tauxCompletion: allMissions.length > 0 ? (terminees / allMissions.length) * 100 : 0,
-      });
+  const loadMissions = async () => {
+    // Cette fonction sera appelée pour rafraîchir les missions
+    window.location.reload();
+  };
+
+  const calculateStatistics = (missions: Mission[]) => {
+    const enCours = missions.filter(m => m.status === 'EN_COURS').length;
+    const terminees = missions.filter(m => m.status === 'TERMINEE').length;
+    const enAttente = missions.filter(m => m.status === 'ATTENTE_REPONSE').length;
+    
+    return {
+      totalMissions: missions.length,
+      missionsEnCours: enCours,
+      missionsTerminees: terminees,
+      missionsEnAttente: enAttente,
+      tauxCompletion: missions.length > 0 ? (terminees / missions.length) * 100 : 0,
     };
-    loadMissions();
+  };
+
+  useEffect(() => {
+    // Activer le rendu client pour les graphiques
     setIsClient(true);
+
+    const loadMissions = async () => {
+      try {
+        const allMissions = await db.getAllMissions();
+        setStats(calculateStatistics(allMissions));
+      } catch (error) {
+        console.error('Erreur lors du chargement des missions:', error);
+      }
+    };
+
+    loadMissions();
   }, []);
 
   const renderCharts = () => {
@@ -183,12 +201,10 @@ export const Dashboard = () => {
   );
 
   const renderRecentMissions = () => {
-    const now = new Date();
     const recentMissions = missions
       .filter(mission => {
         // Afficher les missions en cours et terminées
         const isRecent = mission.status === 'EN_COURS' || mission.status === 'TERMINEE';
-        console.log('Mission:', mission.title, 'Status:', mission.status, 'Is Recent:', isRecent);
         return isRecent;
       })
       .sort((a, b) => {
@@ -199,8 +215,6 @@ export const Dashboard = () => {
         return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
       })
       .slice(0, 5);
-
-    console.log('Missions récentes filtrées:', recentMissions);
 
     return (
       <div className="bg-white rounded-lg shadow-md mt-6 mx-6">
@@ -280,8 +294,6 @@ export const Dashboard = () => {
       })
       .slice(0, 5);
 
-    console.log('Missions à venir filtrées:', upcomingMissions);
-
     return (
       <div className="bg-white rounded-lg shadow-md mt-6 mx-6">
         <div className="p-6">
@@ -348,9 +360,22 @@ export const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="max-w-7xl mx-auto py-6">
+        {/* Alertes de changement de statut */}
+        <StatusChangeAlerts missions={missions} onRefresh={loadMissions} />
+        
+        {/* Missions ignorées */}
+        <IgnoredMissions />
+        
+        {/* Statistiques */}
         {renderStats()}
+        
+        {/* Graphiques */}
         {renderCharts()}
+        
+        {/* Missions récentes */}
         {renderRecentMissions()}
+        
+        {/* Missions à venir */}
         {renderUpcomingMissions()}
       </div>
     </div>

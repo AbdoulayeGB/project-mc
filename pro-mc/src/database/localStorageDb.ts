@@ -109,6 +109,10 @@ class LocalStorageDatabase extends Dexie {
     return await this.documents.where('mission_id').equals(missionId).toArray();
   }
 
+  async deleteDocument(missionId: string, documentId: string): Promise<void> {
+    await this.documents.delete(documentId);
+  }
+
   // Réponses de suivi
   async addReponseSuivi(missionId: string, reponse: ReponseSuivi): Promise<void> {
     const mission = await this.missions.get(missionId);
@@ -139,6 +143,88 @@ class LocalStorageDatabase extends Dexie {
     for (const mission of sampleMissions) {
       await this.addMission(mission);
     }
+  }
+
+  // Fonction pour mettre à jour automatiquement les statuts des missions
+  async updateMissionStatuses(): Promise<{ updated: number; started: number; completed: number }> {
+    const now = new Date();
+    let updated = 0;
+    let started = 0;
+    let completed = 0;
+
+    try {
+      // Récupérer toutes les missions
+      const allMissions = await this.getAllMissions();
+
+      for (const mission of allMissions) {
+        // Ignorer les missions marquées pour ne pas changer automatiquement
+        if (mission.ignoreAutoStatusChange) {
+          console.log(`⚠️ Mission ${mission.reference} ignorée (flag ignoreAutoStatusChange)`);
+          continue;
+        }
+
+        let statusChanged = false;
+        const startDate = new Date(mission.start_date);
+        const endDate = new Date(mission.end_date);
+
+        // Missions planifiées qui doivent passer en cours
+        if (mission.status === 'PLANIFIEE' && now >= startDate) {
+          mission.status = 'EN_COURS';
+          mission.updated_at = new Date().toISOString();
+          statusChanged = true;
+          started++;
+        }
+        // Missions en cours qui doivent se terminer
+        else if (mission.status === 'EN_COURS' && now > endDate) {
+          mission.status = 'TERMINEE';
+          mission.updated_at = new Date().toISOString();
+          statusChanged = true;
+          completed++;
+        }
+
+        // Mettre à jour la mission si le statut a changé
+        if (statusChanged) {
+          await this.updateMission(mission.id, mission);
+          updated++;
+        }
+      }
+
+      console.log(`✅ Mise à jour automatique: ${updated} missions mises à jour (${started} commencées, ${completed} terminées)`);
+      return { updated, started, completed };
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour automatique des statuts:', error);
+      throw error;
+    }
+  }
+
+  // Fonction pour vérifier les missions qui vont changer de statut
+  async checkUpcomingStatusChanges(): Promise<{
+    startingSoon: Mission[];
+    endingSoon: Mission[];
+  }> {
+    const now = new Date();
+    const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const allMissions = await this.getAllMissions();
+
+    const startingSoon = allMissions.filter(mission => {
+      // Ignorer les missions marquées pour ne pas changer automatiquement
+      if (mission.ignoreAutoStatusChange) return false;
+      if (mission.status !== 'PLANIFIEE') return false;
+      const startDate = new Date(mission.start_date);
+      return startDate >= now && startDate <= oneDayFromNow;
+    });
+
+    const endingSoon = allMissions.filter(mission => {
+      // Ignorer les missions marquées pour ne pas changer automatiquement
+      if (mission.ignoreAutoStatusChange) return false;
+      if (mission.status !== 'EN_COURS') return false;
+      const endDate = new Date(mission.end_date);
+      return endDate >= now && endDate <= oneWeekFromNow;
+    });
+
+    return { startingSoon, endingSoon };
   }
 }
 

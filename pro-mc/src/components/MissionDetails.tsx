@@ -24,6 +24,9 @@ export const MissionDetails: React.FC<MissionDetailsProps> = ({
   onUpdate
 }) => {
   const [mission, setMission] = useState<Mission>(initialMission);
+  const [isEditingDates, setIsEditingDates] = useState(false);
+  const [editStartDate, setEditStartDate] = useState<string>(initialMission.start_date ? initialMission.start_date.split('T')[0] : '');
+  const [editEndDate, setEditEndDate] = useState<string>(initialMission.end_date ? initialMission.end_date.split('T')[0] : '');
   const [activeTab, setActiveTab] = useState<'details' | 'findings' | 'documents' | 'sanctions'>('details');
   const [showSanctionForm, setShowSanctionForm] = useState(false);
   const [documents, setDocuments] = useState<MissionDocument[]>([]);
@@ -64,6 +67,31 @@ export const MissionDetails: React.FC<MissionDetailsProps> = ({
     
     loadData();
   }, [mission.id]);
+
+  // Synchroniser les champs d'édition quand la mission change
+  useEffect(() => {
+    setEditStartDate(mission.start_date ? mission.start_date.split('T')[0] : '');
+    setEditEndDate(mission.end_date ? mission.end_date.split('T')[0] : '');
+  }, [mission.start_date, mission.end_date]);
+
+  const handleSaveDates = async () => {
+    try {
+      const updatedMission: Mission = {
+        ...mission,
+        start_date: new Date(editStartDate).toISOString(),
+        end_date: new Date(editEndDate).toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      await db.updateMission(mission.id, updatedMission);
+      setMission(updatedMission);
+      setIsEditingDates(false);
+      onUpdate();
+      toast.success('Dates de la mission mises à jour');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des dates:', error);
+      toast.error('Erreur lors de la mise à jour des dates');
+    }
+  };
 
   const handleDeleteSanction = async (sanctionId: string) => {
     try {
@@ -134,15 +162,33 @@ export const MissionDetails: React.FC<MissionDetailsProps> = ({
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Date de début</p>
-            <p className="text-sm text-gray-900">
-              {format(new Date(mission.start_date), 'dd/MM/yyyy', { locale: fr })}
-            </p>
+            {!isEditingDates ? (
+              <p className="text-sm text-gray-900">
+                {format(new Date(mission.start_date), 'dd/MM/yyyy', { locale: fr })}
+              </p>
+            ) : (
+              <input
+                type="date"
+                value={editStartDate}
+                onChange={(e) => setEditStartDate(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              />
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Date de fin</p>
-            <p className="text-sm text-gray-900">
-              {format(new Date(mission.end_date), 'dd/MM/yyyy', { locale: fr })}
-            </p>
+            {!isEditingDates ? (
+              <p className="text-sm text-gray-900">
+                {format(new Date(mission.end_date), 'dd/MM/yyyy', { locale: fr })}
+              </p>
+            ) : (
+              <input
+                type="date"
+                value={editEndDate}
+                onChange={(e) => setEditEndDate(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+              />
+            )}
           </div>
           <div>
             <p className="text-sm font-medium text-gray-500">Motif de contrôle</p>
@@ -152,6 +198,36 @@ export const MissionDetails: React.FC<MissionDetailsProps> = ({
             <p className="text-sm font-medium text-gray-500">Adresse</p>
             <p className="text-sm text-gray-900">{mission.address}</p>
           </div>
+        </div>
+
+        <div className="mt-4 flex justify-end space-x-2">
+          {!isEditingDates ? (
+            <button
+              onClick={() => setIsEditingDates(true)}
+              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Modifier les dates
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => {
+                  setIsEditingDates(false);
+                  setEditStartDate(mission.start_date ? mission.start_date.split('T')[0] : '');
+                  setEditEndDate(mission.end_date ? mission.end_date.split('T')[0] : '');
+                }}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleSaveDates}
+                className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600"
+              >
+                Enregistrer
+              </button>
+            </>
+          )}
         </div>
       </div>
 

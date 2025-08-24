@@ -3,7 +3,14 @@ export type MissionStatus = 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'ANNULEE' | 
 export type SanctionType = 'AVERTISSEMENT' | 'MISE_EN_DEMEURE' | 'INJONCTION' | 'RESTRICTION_TRAITEMENT' | 'PECUNIAIRE';
 export type FindingType = 'NON_CONFORMITE_MAJEURE' | 'NON_CONFORMITE_MINEURE' | 'OBSERVATION' | 'POINT_CONFORME';
 export type MotifControleType = 'Suite a une plainte' | 'Decision de la session pleniere' | 'Programme annuel' | 'Autres';
-export type DocumentType = 'RAPPORT_CONTROLE' | 'LETTRE_NOTIFICATION' | 'LETTRE_REPONSE' | 'AUTRE';
+export type DocumentType =
+  | 'RAPPORT_CONTROLE'
+  | 'LETTRE_NOTIFICATION'
+  | 'LETTRE_REPONSE'
+  | 'LETTRE_DECISION'
+  | 'LETTRE_PROCUREUR'
+  | 'NOTIFICATION_RECU'
+  | 'AUTRE';
 
 export interface Organization {
   id: string;
@@ -100,4 +107,5 @@ export interface Mission {
   documents: Document[];
   created_at: string;
   updated_at: string;
+  ignoreAutoStatusChange?: boolean; // Flag pour ignorer les changements automatiques de statut
 }

@@ -1,88 +1,41 @@
 import { Mission } from '../types/mission';
 
-const API_URL = 'http://localhost:3000/api';
+const API_BASE_URL = 'http://localhost:3000/api';
 
 export const missionService = {
   // Récupérer toutes les missions
   getMissions: async (): Promise<Mission[]> => {
     try {
-      console.log('Récupération des missions...');
-      const response = await fetch(`${API_URL}/missions`);
+      const response = await fetch(`${API_BASE_URL}/missions`);
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+        throw new Error('Erreur lors de la récupération des missions');
       }
-      const data = await response.json();
-      console.log('Missions reçues:', data);
-      return data;
+      return await response.json();
     } catch (error) {
       console.error('Erreur dans getMissions:', error);
       throw error;
     }
   },
 
-  // Récupérer une mission par son ID
-  getMissionById: async (id: string): Promise<Mission> => {
-    try {
-      console.log('Récupération de la mission:', id);
-      const response = await fetch(`${API_URL}/missions/${id}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log('Mission reçue:', data);
-      return data;
-    } catch (error) {
-      console.error('Erreur dans getMissionById:', error);
-      throw error;
-    }
-  },
-
   // Créer une nouvelle mission
-  createMission: async (missionData: Partial<Mission>): Promise<Mission> => {
+  createMission: async (mission: Omit<Mission, 'id'>): Promise<Mission> => {
     try {
-      console.log('Tentative de création de la mission:', missionData);
-
-      // Préparation des données
-      const mission = {
-        ...missionData,
-        team_members: Array.isArray(missionData.team_members) 
-          ? missionData.team_members 
-          : missionData.team_members?.split(',').map(m => m.trim()).filter(Boolean) || [],
-        objectives: Array.isArray(missionData.objectives)
-          ? missionData.objectives
-          : missionData.objectives?.split('\n').map(o => o.trim()).filter(Boolean) || [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      // Envoi de la requête
-      const response = await fetch(`${API_URL}/missions`, {
+      const response = await fetch(`${API_BASE_URL}/missions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
-        body: JSON.stringify(mission)
+        body: JSON.stringify(mission),
       });
-
-      console.log('Statut de la réponse:', response.status);
-
+      
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Erreur du serveur:', errorData);
-        throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+        throw new Error(errorData.error || 'Erreur lors de la création de la mission');
       }
-
-      const data = await response.json();
-      console.log('Mission créée avec succès:', data);
-      return data;
-    } catch (error: any) {
+      
+      return await response.json();
+    } catch (error) {
       console.error('Erreur dans createMission:', error);
-      if (error.message === 'Failed to fetch') {
-        throw new Error('Impossible de se connecter au serveur. Vérifiez que le serveur backend est en cours d\'exécution.');
-      }
       throw error;
     }
   },
@@ -90,23 +43,19 @@ export const missionService = {
   // Mettre à jour une mission
   updateMission: async (id: string, mission: Partial<Mission>): Promise<Mission> => {
     try {
-      const response = await fetch(`${API_URL}/missions/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/missions/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
-        body: JSON.stringify(mission)
+        body: JSON.stringify(mission),
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+        throw new Error('Erreur lors de la mise à jour de la mission');
       }
-
-      const data = await response.json();
-      console.log('Mission mise à jour:', data);
-      return data;
+      
+      return await response.json();
     } catch (error) {
       console.error('Erreur dans updateMission:', error);
       throw error;
@@ -116,13 +65,12 @@ export const missionService = {
   // Supprimer une mission
   deleteMission: async (id: string): Promise<void> => {
     try {
-      const response = await fetch(`${API_URL}/missions/${id}`, {
-        method: 'DELETE'
+      const response = await fetch(`${API_BASE_URL}/missions/${id}`, {
+        method: 'DELETE',
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Erreur HTTP: ${response.status}`);
+        throw new Error('Erreur lors de la suppression de la mission');
       }
     } catch (error) {
       console.error('Erreur dans deleteMission:', error);
@@ -130,48 +78,63 @@ export const missionService = {
     }
   },
 
-  // Ajouter un constat à une mission
-  addFinding: async (missionId: string, finding: any): Promise<Mission> => {
-    const response = await fetch(`${API_URL}/missions/${missionId}/findings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(finding),
-    });
-    if (!response.ok) {
-      throw new Error('Erreur lors de l\'ajout du constat');
+  // Déclencher la mise à jour automatique des statuts
+  updateMissionStatuses: async (): Promise<{ message: string }> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/missions/update-statuses`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la mise à jour des statuts');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Erreur dans updateMissionStatuses:', error);
+      throw error;
     }
-    return response.json();
   },
 
-  // Ajouter une remarque à une mission
-  addRemark: async (missionId: string, remark: any): Promise<Mission> => {
-    const response = await fetch(`${API_URL}/missions/${missionId}/remarks`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(remark),
+  // Vérifier les missions qui vont changer de statut
+  checkUpcomingStatusChanges: (missions: Mission[]): {
+    startingSoon: Mission[];
+    endingSoon: Mission[];
+  } => {
+    const now = new Date();
+    const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const startingSoon = missions.filter(mission => {
+      if (mission.status !== 'PLANIFIEE') return false;
+      const startDate = new Date(mission.start_date);
+      return startDate >= now && startDate <= oneDayFromNow;
     });
-    if (!response.ok) {
-      throw new Error('Erreur lors de l\'ajout de la remarque');
-    }
-    return response.json();
+
+    const endingSoon = missions.filter(mission => {
+      if (mission.status !== 'EN_COURS') return false;
+      const endDate = new Date(mission.end_date);
+      return endDate >= now && endDate <= oneWeekFromNow;
+    });
+
+    return { startingSoon, endingSoon };
   },
 
-  // Ajouter une sanction à une mission
-  addSanction: async (missionId: string, sanction: any): Promise<Mission> => {
-    const response = await fetch(`${API_URL}/missions/${missionId}/sanctions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sanction),
-    });
-    if (!response.ok) {
-      throw new Error('Erreur lors de l\'ajout de la sanction');
+  // Obtenir le statut prévu d'une mission basé sur sa date
+  getExpectedStatus: (mission: Mission): string => {
+    const now = new Date();
+    const startDate = new Date(mission.start_date);
+    const endDate = new Date(mission.end_date);
+
+    if (now < startDate) {
+      return 'PLANIFIEE';
+    } else if (now >= startDate && now <= endDate) {
+      return 'EN_COURS';
+    } else {
+      return 'TERMINEE';
     }
-    return response.json();
   }
 }; 
