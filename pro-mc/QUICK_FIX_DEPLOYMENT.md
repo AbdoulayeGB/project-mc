@@ -38,6 +38,24 @@ VITE_API_URL = https://votre-projet.supabase.co
 2. **Cliquer sur "Redeploy" sur le dernier déploiement**
 3. **Ou créer un nouveau déploiement**
 
+## 🚨 **Problème Résolu : chart.js manquant**
+
+### **Erreur rencontrée :**
+```
+[vite]: Rollup failed to resolve import "chart.js" from "/vercel/path0/pro-mc/src/components/Dashboard.tsx"
+```
+
+### **Solution appliquée :**
+```bash
+# Installer les dépendances manquantes
+npm install chart.js react-chartjs-2
+```
+
+### **✅ Problème résolu :**
+- ✅ Dépendances chart.js installées
+- ✅ Build local réussi
+- ✅ Prêt pour le déploiement
+
 ## 🔧 **Si le problème persiste**
 
 ### **Solution 1 : Recréer le projet Vercel**
@@ -108,6 +126,10 @@ Créer un fichier `vercel.json` à la racine du projet (pas dans pro-mc) :
 - Root Directory doit être pro-mc
 - Build Command doit être npm run build
 
+### **4. Dépendances manquantes**
+- Vérifier que toutes les dépendances sont installées
+- Exécuter `npm install` avant le build
+
 ## 🚨 **Problèmes Courants**
 
 ### **Page blanche**
@@ -119,8 +141,11 @@ Créer un fichier `vercel.json` à la racine du projet (pas dans pro-mc) :
 - Output Directory incorrect
 
 ### **Erreur de build**
-- Dépendances manquantes
+- Dépendances manquantes (comme chart.js)
 - Version Node.js incorrecte
+
+### **Erreur chart.js**
+- ✅ **RÉSOLU** : Installer `chart.js` et `react-chartjs-2`
 
 ## 📞 **Support Immédiat**
 
@@ -147,6 +172,14 @@ Une fois l'application déployée et fonctionnelle, vous aurez :
 - ✅ Application accessible en ligne
 - ✅ Base de données Supabase connectée
 - ✅ Authentification fonctionnelle
+- ✅ Graphiques Dashboard fonctionnels
 - ✅ Toutes les fonctionnalités opérationnelles
 
 **🔧 Ce guide devrait résoudre le problème en 5-10 minutes !**
+
+## 📊 **Statut Actuel**
+
+- ✅ **Problème chart.js résolu**
+- ✅ **Build local réussi**
+- ✅ **Dépendances installées**
+- ✅ **Prêt pour le déploiement**
