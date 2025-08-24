@@ -4,6 +4,7 @@ import { authService } from '../services/authService';
 import { User, CreateUserData, UserRole } from '../types/auth';
 import { toast } from 'react-hot-toast';
 import { UserSyncStatus } from './UserSyncStatus';
+import { SyncDiagnostic } from './SyncDiagnostic';
 
 export const UserManagement: React.FC = () => {
   const { user } = useAuth();
@@ -539,6 +540,11 @@ export const UserManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Diagnostic de synchronisation */}
+      <div className="mt-8">
+        <SyncDiagnostic />
+      </div>
 
       {/* Statut de synchronisation */}
       <div className="mt-8">
