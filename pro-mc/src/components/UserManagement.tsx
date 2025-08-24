@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/authService';
 import { User, CreateUserData, UserRole } from '../types/auth';
 import { toast } from 'react-hot-toast';
+import { UserSyncStatus } from './UserSyncStatus';
 
 export const UserManagement: React.FC = () => {
   const { user } = useAuth();
@@ -538,6 +539,11 @@ export const UserManagement: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Statut de synchronisation */}
+      <div className="mt-8">
+        <UserSyncStatus onRefresh={loadUsers} />
+      </div>
     </div>
   );
 };

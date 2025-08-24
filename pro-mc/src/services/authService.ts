@@ -1,4 +1,5 @@
-import { User, LoginCredentials, CreateUserData, UpdateUserData, ROLE_PERMISSIONS, UserRole, UserWithPassword } from '../types/auth';
+import { User, LoginCredentials, CreateUserData, UpdateUserData, ROLE_PERMISSIONS, UserRole, UserWithPassword, Permissions as UserPermissions } from '../types/auth';
+import { SupabaseService } from './supabaseService';
 
 // Fonction simple de hachage de mot de passe (pour la démo)
 function hashPassword(password: string): string {
@@ -34,6 +35,38 @@ class AuthService {
   constructor() {
     this.loadUsers();
     this.loadLoginAttempts();
+    this.syncWithSupabase(); // Synchroniser avec Supabase au démarrage
+  }
+
+  // Synchroniser avec Supabase
+  private async syncWithSupabase(): Promise<void> {
+    try {
+      console.log('🔄 Synchronisation avec Supabase...');
+      
+      // Récupérer les utilisateurs de Supabase
+      const supabaseUsers = await SupabaseService.getUsers();
+      
+      // Fusionner avec les utilisateurs locaux
+      const localUserIds = new Set(this.users.map(u => u.id));
+      
+      for (const supabaseUser of supabaseUsers) {
+        if (!localUserIds.has(supabaseUser.id)) {
+          // Ajouter les nouveaux utilisateurs de Supabase
+          const newUser: UserWithPassword = {
+            ...supabaseUser,
+            password: '', // Le mot de passe n'est pas stocké localement pour la sécurité
+            isActive: supabaseUser.is_active || true
+          };
+          this.users.push(newUser);
+          console.log(`✅ Utilisateur ajouté depuis Supabase: ${supabaseUser.email}`);
+        }
+      }
+      
+      this.saveUsers();
+      console.log('✅ Synchronisation avec Supabase terminée');
+    } catch (error) {
+      console.error('❌ Erreur lors de la synchronisation avec Supabase:', error);
+    }
   }
 
   // Charger les utilisateurs depuis localStorage
@@ -98,36 +131,33 @@ class AuthService {
   }
 
   // Connexion utilisateur
-  async login(credentials: LoginCredentials): Promise<User | null> {
-    // Délai aléatoire pour prévenir les attaques par force brute
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
-
+  async login(credentials: LoginCredentials): Promise<User> {
     const { email, password } = credentials;
-    const hashedPassword = hashPassword(password);
 
     // Vérifier si le compte est bloqué
     const attempts = this.loginAttempts[email];
-    if (attempts && attempts.blockedUntil && Date.now() < attempts.blockedUntil) {
+    if (attempts && attempts.blockedUntil && attempts.blockedUntil > Date.now()) {
       const remainingTime = Math.ceil((attempts.blockedUntil - Date.now()) / 1000 / 60);
       throw new Error(`Compte temporairement bloqué. Réessayez dans ${remainingTime} minutes.`);
     }
 
-    // Chercher l'utilisateur
-    const user = this.users.find(u => u.email === email && u.isActive);
+    // Trouver l'utilisateur
+    const user = this.users.find(u => u.email === email);
     if (!user) {
       this.recordLoginAttempt(email);
       throw new Error('Email ou mot de passe incorrect');
     }
 
+    if (!user.isActive) {
+      throw new Error('Compte désactivé');
+    }
+
     // Vérifier le mot de passe
     let isValidPassword = false;
-    
     if (user.id === 'admin-1') {
-      // Pour l'admin par défaut, vérifier le mot de passe en clair
       isValidPassword = password === 'Passer';
     } else {
-      // Pour tous les autres utilisateurs, vérifier le hash
-      isValidPassword = user.password === hashedPassword;
+      isValidPassword = user.password === hashPassword(password);
     }
 
     if (!isValidPassword) {
@@ -141,7 +171,14 @@ class AuthService {
 
     // Mettre à jour la dernière connexion
     user.last_login = new Date().toISOString();
-    this.updateUser(user.id, { last_login: user.last_login });
+    this.saveUsers();
+
+    // Synchroniser avec Supabase
+    try {
+      await SupabaseService.updateUser(user.id, { last_login: user.last_login });
+    } catch (error) {
+      console.error('Erreur lors de la synchronisation avec Supabase:', error);
+    }
 
     // Créer la session
     const sessionData = {
@@ -218,8 +255,31 @@ class AuthService {
       phone: userData.phone || ''
     };
 
+    // Sauvegarder localement
     this.users.push(newUser);
     this.saveUsers();
+
+    // Sauvegarder dans Supabase
+    try {
+      console.log('🔄 Sauvegarde de l\'utilisateur dans Supabase...');
+      const supabaseUser = await SupabaseService.createUser({
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        permissions: newUser.permissions,
+        is_active: newUser.isActive,
+        department: newUser.department,
+        phone: newUser.phone,
+        created_at: newUser.created_at,
+        updated_at: new Date().toISOString()
+      });
+      console.log('✅ Utilisateur sauvegardé dans Supabase:', supabaseUser.email);
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde dans Supabase:', error);
+      // Ne pas échouer complètement si Supabase n'est pas disponible
+    }
+
     return { ...newUser, password: undefined } as User;
   }
 
@@ -229,7 +289,7 @@ class AuthService {
   }
 
   // Mettre à jour un utilisateur
-  updateUser(userId: string, updates: UpdateUserData): User | null {
+  async updateUser(userId: string, updates: UpdateUserData): Promise<User | null> {
     const userIndex = this.users.findIndex(u => u.id === userId);
     if (userIndex === -1) return null;
 
@@ -238,8 +298,22 @@ class AuthService {
       updatedUser.permissions = ROLE_PERMISSIONS[updates.role];
     }
 
+    // Mettre à jour localement
     this.users[userIndex] = updatedUser;
     this.saveUsers();
+
+    // Mettre à jour dans Supabase
+    try {
+      console.log('🔄 Mise à jour de l\'utilisateur dans Supabase...');
+      await SupabaseService.updateUser(userId, {
+        ...updates,
+        updated_at: new Date().toISOString()
+      });
+      console.log('✅ Utilisateur mis à jour dans Supabase:', updatedUser.email);
+    } catch (error) {
+      console.error('❌ Erreur lors de la mise à jour dans Supabase:', error);
+    }
+
     return { ...updatedUser, password: undefined } as User;
   }
 
@@ -253,8 +327,21 @@ class AuthService {
     const userIndex = this.users.findIndex(u => u.id === userId);
     if (userIndex === -1) return false;
 
+    const deletedUser = this.users[userIndex];
+
+    // Supprimer localement
     this.users.splice(userIndex, 1);
     this.saveUsers();
+
+    // Supprimer dans Supabase
+    try {
+      console.log('🔄 Suppression de l\'utilisateur dans Supabase...');
+      await SupabaseService.deleteUser(userId);
+      console.log('✅ Utilisateur supprimé dans Supabase:', deletedUser.email);
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression dans Supabase:', error);
+    }
+
     return true;
   }
 
@@ -264,17 +351,14 @@ class AuthService {
     if (!user) return false;
 
     // Vérifier l'ancien mot de passe
-    let isValidPassword = false;
-    
+    let isValidCurrentPassword = false;
     if (user.id === 'admin-1') {
-      // Pour l'admin par défaut, vérifier le mot de passe en clair
-      isValidPassword = currentPassword === 'Passer';
+      isValidCurrentPassword = currentPassword === 'Passer';
     } else {
-      // Pour tous les autres utilisateurs, vérifier le hash
-      isValidPassword = user.password === hashPassword(currentPassword);
+      isValidCurrentPassword = user.password === hashPassword(currentPassword);
     }
 
-    if (!isValidPassword) {
+    if (!isValidCurrentPassword) {
       throw new Error('Mot de passe actuel incorrect');
     }
 
@@ -283,22 +367,37 @@ class AuthService {
       throw new Error('Le nouveau mot de passe doit contenir au moins 8 caractères');
     }
 
-    // Mettre à jour le mot de passe
+    // Mettre à jour le mot de passe localement
     user.password = hashPassword(newPassword);
-    this.saveUsers(); // Sauvegarder immédiatement
+    this.saveUsers();
+
+    // Note: Le mot de passe n'est pas synchronisé avec Supabase pour des raisons de sécurité
+    // Supabase gère ses propres mots de passe via l'authentification
+
     return true;
   }
 
   // Obtenir les permissions d'un utilisateur
-  getUserPermissions(userId: string): any {
+  getUserPermissions(userId: string): UserPermissions {
     const user = this.users.find(u => u.id === userId);
-    return user ? (user.permissions || ROLE_PERMISSIONS[user.role]) : null;
+    return user?.permissions || ROLE_PERMISSIONS[user?.role || 'user'];
   }
 
   // Vérifier si un utilisateur a une permission spécifique
-  hasPermission(userId: string, permission: keyof any): boolean {
+  hasPermission(userId: string, permission: keyof UserPermissions): boolean {
     const permissions = this.getUserPermissions(userId);
-    return permissions ? permissions[permission] : false;
+    return permissions[permission] || false;
+  }
+
+  // Obtenir les rôles disponibles
+  getAvailableRoles(): UserRole[] {
+    return Object.keys(ROLE_PERMISSIONS) as UserRole[];
+  }
+
+  // Réinitialiser les utilisateurs (pour les tests)
+  resetUsers(): void {
+    this.users = [DEFAULT_ADMIN];
+    this.saveUsers();
   }
 
   // Enregistrer une tentative de connexion échouée
@@ -316,46 +415,7 @@ class AuthService {
     this.saveLoginAttempts();
   }
 
-  // Obtenir les rôles disponibles
-  getAvailableRoles(): { value: UserRole; label: string; description: string }[] {
-    return [
-      {
-        value: 'admin',
-        label: 'Administrateur',
-        description: 'Accès complet à toutes les fonctionnalités'
-      },
-      {
-        value: 'supervisor',
-        label: 'Superviseur',
-        description: 'Peut créer, éditer et gérer les missions, mais pas supprimer'
-      },
-      {
-        value: 'controller',
-        label: 'Contrôleur',
-        description: 'Peut créer et éditer ses propres missions'
-      },
-      {
-        value: 'viewer',
-        label: 'Lecteur',
-        description: 'Peut seulement consulter les missions et rapports'
-      },
-      {
-        value: 'user',
-        label: 'Utilisateur',
-        description: 'Accès limité aux fonctionnalités de base'
-      }
-    ];
-  }
-
-  // Réinitialiser la base de données utilisateurs (pour les tests)
-  resetUsers(): void {
-    this.users = [DEFAULT_ADMIN];
-    this.saveUsers();
-    this.loginAttempts = {};
-    this.saveLoginAttempts();
-  }
-
-  // Méthode de debug pour vérifier les utilisateurs (à supprimer en production)
+  // Debug: Afficher les utilisateurs dans la console
   debugUsers(): void {
     console.log('=== DEBUG UTILISATEURS ===');
     console.log('Utilisateurs stockés:', this.users);
