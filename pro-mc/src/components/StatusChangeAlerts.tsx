@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Mission } from '../types/mission';
 import { db } from '../database/localStorageDb';
 import { toast } from 'react-hot-toast';
-import { getSenegalNow, toSenegalTime, formatSenegalDateOnly } from '../utils/timeUtils';
+import { formatSenegalDateOnly } from '../utils/timeUtils';
 
 interface StatusChangeAlertsProps {
   missions: Mission[];
