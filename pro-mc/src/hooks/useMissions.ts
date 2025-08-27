@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Mission } from '../types/mission';
 import { getDatabase } from '../database/db';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabaseService } from '../services/supabaseService';
+import { PostgresService } from '../services/postgresService';
 import { toast } from 'react-hot-toast';
 
 export const useMissions = () => {
@@ -39,7 +39,7 @@ export const useMissions = () => {
     queryKey: ['missions'],
     queryFn: async () => {
       console.log('🔄 Début de la récupération des missions via React Query');
-      const result = await supabaseService.getMissions();
+      const result = await PostgresService.getMissions();
       console.log('📊 Missions récupérées:', result);
       return result;
     },
@@ -61,7 +61,7 @@ export const useMissions = () => {
   };
 
   const addMissionMutation = useMutation({
-    mutationFn: (mission: Omit<Mission, 'id'>) => supabaseService.createMission(mission),
+    mutationFn: (mission: Omit<Mission, 'id'>) => PostgresService.createMission(mission),
     onSuccess: () => {
       toast.success('Mission ajoutée avec succès');
       updateMissionsCache();
@@ -73,7 +73,7 @@ export const useMissions = () => {
 
   const updateMissionMutation = useMutation({
     mutationFn: ({ id, mission }: { id: string; mission: Partial<Mission> }) => 
-      supabaseService.updateMission(id, mission),
+      PostgresService.updateMission(id, mission),
     onSuccess: () => {
       toast.success('Mission mise à jour avec succès');
       updateMissionsCache();
@@ -84,7 +84,7 @@ export const useMissions = () => {
   });
 
   const deleteMissionMutation = useMutation({
-    mutationFn: (id: string) => supabaseService.deleteMission(id),
+    mutationFn: (id: string) => PostgresService.deleteMission(id),
     onSuccess: () => {
       toast.success('Mission supprimée avec succès');
       updateMissionsCache();

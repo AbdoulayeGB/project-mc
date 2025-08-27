@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/authService';
-import { User, CreateUserData, UserRole } from '../types/auth';
+import { User, CreateUserData, UserRole, ROLE_PERMISSIONS } from '../types/auth';
 import { toast } from 'react-hot-toast';
-import { UserSyncStatus } from './UserSyncStatus';
-import { SyncDiagnostic } from './SyncDiagnostic';
+
 
 export const UserManagement: React.FC = () => {
   const { user } = useAuth();
@@ -312,6 +311,23 @@ export const UserManagement: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <h4 className="text-sm font-medium text-blue-800 mb-2">Permissions du rôle sélectionné :</h4>
+                  <div className="text-xs text-blue-700 space-y-1">
+                    {formData.role && ROLE_PERMISSIONS[formData.role] && (
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.entries(ROLE_PERMISSIONS[formData.role]).map(([permission, hasAccess]) => (
+                          <div key={permission} className="flex items-center">
+                            <span className={`w-2 h-2 rounded-full mr-2 ${hasAccess ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                            <span className={hasAccess ? 'text-green-700' : 'text-red-700'}>
+                              {permission.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -481,10 +497,27 @@ export const UserManagement: React.FC = () => {
                   >
                     {availableRoles.map((role) => (
                       <option key={role.value} value={role.value}>
-                        {role.label}
+                        {role.label} - {role.description}
                       </option>
                     ))}
                   </select>
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">Permissions du rôle sélectionné :</h4>
+                    <div className="text-xs text-blue-700 space-y-1">
+                      {editData.role && ROLE_PERMISSIONS[editData.role] && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(ROLE_PERMISSIONS[editData.role]).map(([permission, hasAccess]) => (
+                            <div key={permission} className="flex items-center">
+                              <span className={`w-2 h-2 rounded-full mr-2 ${hasAccess ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                              <span className={hasAccess ? 'text-green-700' : 'text-red-700'}>
+                                {permission.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -541,15 +574,7 @@ export const UserManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Diagnostic de synchronisation */}
-      <div className="mt-8">
-        <SyncDiagnostic />
-      </div>
 
-      {/* Statut de synchronisation */}
-      <div className="mt-8">
-        <UserSyncStatus onRefresh={loadUsers} />
-      </div>
     </div>
   );
 };

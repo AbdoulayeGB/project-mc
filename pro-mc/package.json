@@ -18,11 +18,14 @@
     "insert-control-missions": "tsx src/scripts/insertControlMissions.ts",
     "test-status-changes": "tsx src/scripts/testStatusChanges.ts",
     "create-test-missions": "tsx src/scripts/createTestMissions.ts",
-    "import-test-missions": "tsx src/scripts/importTestMissions.ts"
+    "import-test-missions": "tsx src/scripts/importTestMissions.ts",
+    "server": "cd server && npm start",
+    "server:dev": "cd server && npm run dev",
+    "start": "npm run build && npm run server",
+    "test-db": "node -e \"import('./src/config/database.js').then(m => m.testConnection()).then(console.log).catch(console.error)\""
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
-    "@supabase/supabase-js": "^2.39.0",
     "@tanstack/react-query": "^5.72.1",
     "chart.js": "^4.5.0",
     "cross-fetch": "^4.1.0",
