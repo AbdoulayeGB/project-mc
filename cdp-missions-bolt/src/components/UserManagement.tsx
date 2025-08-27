@@ -7,6 +7,7 @@ import { UserSyncStatus } from './UserSyncStatus';
 
 export const UserManagement: React.FC = () => {
   const { user } = useAuth();
+  const isAdmin = !!user && user.role === 'admin';
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -22,6 +23,7 @@ export const UserManagement: React.FC = () => {
     department: '',
     phone: ''
   });
+  const [customPermissions, setCustomPermissions] = useState<Record<string, boolean>>({});
 
   // Formulaire d'édition
   const [editData, setEditData] = useState({
@@ -72,7 +74,7 @@ export const UserManagement: React.FC = () => {
     }
 
     try {
-      await authService.createUser(formData);
+      await authService.createUser({ ...formData, permissions: customPermissions });
       toast.success('Utilisateur créé avec succès');
       setFormData({
         email: '',
@@ -83,6 +85,7 @@ export const UserManagement: React.FC = () => {
         phone: ''
       });
       setShowCreateForm(false);
+      setCustomPermissions({});
       await loadUsers();
     } catch (error: any) {
       console.error('Erreur lors de la création:', error);
@@ -221,8 +224,10 @@ export const UserManagement: React.FC = () => {
       {/* Boutons d'action */}
       <div className="mb-6 flex space-x-4">
         <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-[#e67e22] text-white px-4 py-2 rounded-md hover:bg-[#d35400] transition-colors flex items-center space-x-2"
+          onClick={() => { if (isAdmin) setShowCreateForm(!showCreateForm); }}
+          disabled={!isAdmin}
+          className={`px-4 py-2 rounded-md transition-colors flex items-center space-x-2 ${isAdmin ? 'bg-[#e67e22] text-white hover:bg-[#d35400]' : 'bg-gray-300 text-white cursor-not-allowed'}`}
+          title={isAdmin ? undefined : 'Permission insuffisante'}
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -317,6 +322,39 @@ export const UserManagement: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                <div className="mt-2 border rounded p-3 bg-gray-50">
+                  <p className="text-sm font-medium text-gray-700 mb-2">Autorisations personnalisées</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {(() => {
+                      const permsFromRole = authService.getUserPermissions({ id: '', role: formData.role } as any);
+                      const fr: Record<string, string> = {
+                        canCreateMissions: 'Créer des missions',
+                        canEditMissions: 'Modifier des missions',
+                        canDeleteMissions: 'Supprimer des missions',
+                        canViewAllMissions: 'Voir toutes les missions',
+                        canImportMissions: 'Importer des missions',
+                        canManageUsers: 'Gérer les utilisateurs',
+                        canViewReports: 'Voir les rapports',
+                        canEditReports: 'Modifier les rapports',
+                        canManageDocuments: 'Gérer les documents',
+                        canChangeStatus: 'Changer les statuts',
+                        canViewDebug: 'Voir le debug',
+                      };
+                      return Object.entries(permsFromRole).map(([k, v]) => (
+                        <label key={k} className="flex items-center text-sm text-gray-700 py-1">
+                          <input
+                            type="checkbox"
+                            className="mr-2"
+                            checked={customPermissions[k] ?? v}
+                            onChange={(e) => setCustomPermissions(prev => ({ ...prev, [k]: e.target.checked }))}
+                          />
+                          {fr[k] || k}
+                        </label>
+                      ));
+                    })()}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Ces choix créent un profil personnalisé (hors rôle) pour l’utilisateur.</p>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -447,17 +485,19 @@ export const UserManagement: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => startEditUser(userItem)}
-                          className="text-[#e67e22] hover:text-[#d35400] transition-colors"
-                          title="Modifier l'utilisateur"
+                          onClick={() => { if (isAdmin) startEditUser(userItem); }}
+                          disabled={!isAdmin}
+                          className={`transition-colors ${isAdmin ? 'text-[#e67e22] hover:text-[#d35400]' : 'text-gray-400 cursor-not-allowed'}`}
+                          title={isAdmin ? "Modifier l'utilisateur" : 'Permission insuffisante'}
                         >
                           Modifier
                         </button>
                         {userItem.id !== 'admin-1' && (
                           <button
-                            onClick={() => handleDeleteUser(userItem.id, userItem.name)}
-                            className="text-red-600 hover:text-red-900 transition-colors"
-                            title="Supprimer l'utilisateur"
+                            onClick={() => { if (isAdmin) handleDeleteUser(userItem.id, userItem.name); }}
+                            disabled={!isAdmin}
+                            className={`transition-colors ${isAdmin ? 'text-red-600 hover:text-red-900' : 'text-gray-400 cursor-not-allowed'}`}
+                            title={isAdmin ? "Supprimer l'utilisateur" : 'Permission insuffisante'}
                           >
                             Supprimer
                           </button>

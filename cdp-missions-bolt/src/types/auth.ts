@@ -130,6 +130,7 @@ export interface CreateUserData {
   role: UserRole;
   department?: string;
   phone?: string;
+  permissions?: Partial<Permissions>;
 }
 
 export interface UpdateUserData {
